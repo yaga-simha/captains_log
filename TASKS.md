@@ -1,0 +1,14 @@
+- [ ] Set up basic application skeleton in src/main.rs
+- [ ] Add journal logging functionality in src/journal.rs
+- [ ] Implement log entry persistence to disk (create journal folder)
+- [ ] Design and implement the three left-panel sub-panels (write, list, view)
+- [ ] Add keyboard handling (CTRL+S to save entry)
+- [ ] Implement scrolling for the list and detail views
+- [ ] Build right-panel animation (e.g., simple rocket ASCII art)
+- [ ] Add unit tests for journal read/write logic
+- [ ] Add integration tests for UI event handling
+- [ ] Set up Cargo.toml with ratatui and crossterm dependencies
+- [ ] Add formatting (cargo fmt) and linting (cargo clippy) scripts
+- [ ] Create CI pipeline (GitHub Actions) for build and tests
+- [ ] Add documentation (README, usage guide)
+- [ ] Commit all changes with appropriate commit message format

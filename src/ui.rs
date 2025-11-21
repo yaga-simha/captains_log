@@ -45,7 +45,11 @@ fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title("KEYBOARD ACTIVITY")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ); // "Glow" with bold
 
     let inner_area = block.inner(area);
     f.render_widget(block, area);
@@ -55,19 +59,15 @@ fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(1),    // Chart
-            Constraint::Length(1), // Gauge/Stats
+            Constraint::Length(2), // Gauge + Stats (Stacked)
         ])
         .split(inner_area);
 
-    // --- Braille Visualization ---
+    // --- Waveform Visualization (Bars) ---
     let chart_area = activity_chunks[0];
     let width = chart_area.width as usize;
     let height = chart_area.height as usize;
 
-    // Get data for the width of the chart
-    // We want to fill from right to left.
-    // If we have less data than width, we pad with 0.
-    // If we have more, we take the last 'width' items.
     let data_len = app.activity_stream.len();
     let mut data = Vec::with_capacity(width);
 
@@ -87,71 +87,131 @@ fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
         data.extend(app.activity_stream.iter().skip(data_len - width).cloned());
     }
 
-    // Determine max value for scaling
-    let max_val = data.iter().max().cloned().unwrap_or(1).max(5); // Minimum scale of 5
+    // Create smoothed data (rolling sum over 1 second / 4 ticks)
+    // This gives us a range of roughly 0-10+ for WPM 0-120+
+    let mut smoothed_data = Vec::with_capacity(width);
+    for i in 0..width {
+        let mut sum = 0;
+        for j in 0..4 {
+            if i >= j {
+                sum += data[i - j];
+            }
+        }
+        smoothed_data.push(sum);
+    }
 
-    let mut full_text = String::new();
+    // Determine max value for scaling
+    // Scale to ~500 LPM (8.33 chars/sec).
+    // smoothed_data is chars/sec.
+    let max_val = smoothed_data.iter().max().cloned().unwrap_or(1).max(9);
+
+    let mut lines = Vec::with_capacity(height);
+    let mid = height as f32 / 2.0;
 
     // Render from top row to bottom row
     for row in 0..height {
-        let mut line_string = String::new();
-        // Calculate threshold for this row
-        // Row 0 is top, Row height-1 is bottom.
-        // We want to map value to height.
-        // Normalized value v_norm = v / max_val * height
-        // If v_norm >= (height - row), it's full.
-        // If v_norm is between (height - row - 1) and (height - row), it's partial.
+        let mut spans = Vec::with_capacity(width);
+        let row_top = row as f32;
+        let row_bottom = (row + 1) as f32;
 
-        for &val in &data {
-            let v_norm = (val as f32 / max_val as f32) * height as f32;
-            let row_val = height as f32 - row as f32; // e.g. if height=5, row=0 -> 5.0 (top)
+        for &val in &smoothed_data {
+            // Color logic based on intensity (smoothed chars/sec)
+            // 1-500 LPM range requested.
+            // 100 LPM ~= 1.6 cps.
+            // 300 LPM ~= 5 cps.
+            // 500 LPM ~= 8.3 cps.
 
-            // Check if the bar reaches this row
-            if v_norm >= row_val {
-                line_string.push('⣿');
-            } else if v_norm >= row_val - 1.0 {
-                // Partial block
-                // Fraction within this block: v_norm - (row_val - 1.0)
-                let frac = v_norm - (row_val - 1.0);
+            let color = match val {
+                0 => Color::DarkGray,   // Idle
+                1..=2 => Color::Blue,   // < 120 LPM (Slow)
+                3..=5 => Color::Green,  // 120-300 LPM (Medium)
+                6..=8 => Color::Yellow, // 300-480 LPM (Fast)
+                _ => Color::Red,        // > 480 LPM (Very Fast)
+            };
 
-                if frac > 0.8 {
-                    line_string.push('⣿');
-                } else if frac > 0.6 {
-                    line_string.push('⠇');
-                } else if frac > 0.4 {
-                    line_string.push('⠆');
-                } else if frac > 0.1 {
-                    line_string.push('⠠');
+            // Waveform logic
+            let amplitude = (val as f32 / max_val as f32) * mid;
+
+            let wave_top = mid - amplitude;
+            let wave_bottom = mid + amplitude;
+
+            let overlap_top = row_top.max(wave_top);
+            let overlap_bottom = row_bottom.min(wave_bottom);
+            let overlap = (overlap_bottom - overlap_top).max(0.0);
+
+            let mut c = ' ';
+
+            if overlap > 0.0 {
+                if row as f32 + 0.5 < mid {
+                    // Top half
+                    c = if overlap > 0.875 {
+                        '▇'
+                    } else if overlap > 0.75 {
+                        '▆'
+                    } else if overlap > 0.625 {
+                        '▅'
+                    } else if overlap > 0.5 {
+                        '▄'
+                    } else if overlap > 0.375 {
+                        '▃'
+                    } else if overlap > 0.25 {
+                        '▂'
+                    } else {
+                        ' '
+                    };
+                } else {
+                    // Bottom half
+                    if overlap > 0.5 {
+                        c = '▀';
+                    } else {
+                        c = ' ';
+                    }
                 }
-                // minimal dot
-                else {
-                    line_string.push('⠀');
+                if overlap >= 0.99 {
+                    c = '█';
                 }
+            }
+
+            // Center line decoration
+            if c == ' ' && row == height / 2 {
+                c = '─';
+                spans.push(Span::styled(
+                    c.to_string(),
+                    Style::default().fg(Color::DarkGray),
+                ));
             } else {
-                line_string.push('⠀');
+                // Use the calculated color for the bar
+                let style = if c == ' ' {
+                    Style::default()
+                } else {
+                    Style::default().fg(color).add_modifier(Modifier::BOLD)
+                };
+                spans.push(Span::styled(c.to_string(), style));
             }
         }
-        full_text.push_str(&line_string);
-        full_text.push('\n');
+        lines.push(Line::from(spans));
     }
 
-    let paragraph = Paragraph::new(full_text)
-        .block(Block::default().borders(Borders::NONE))
-        .style(Style::default().fg(Color::Yellow));
+    let paragraph = Paragraph::new(lines).block(Block::default().borders(Borders::NONE));
     f.render_widget(paragraph, chart_area);
 
     // --- Bottom Info Bar (Gauge + Stats) ---
     let info_chunks = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(70), // Gauge
-            Constraint::Percentage(30), // Stats
+            Constraint::Length(1), // Gauge
+            Constraint::Length(1), // Stats
         ])
         .split(activity_chunks[1]);
 
     let label = format!("CURRENT FOCUS LEVEL: {:.0}% (LOCKED IN)", app.focus_level);
     let gauge = Gauge::default()
-        .gauge_style(Style::default().fg(Color::Blue).bg(Color::DarkGray))
+        .gauge_style(
+            Style::default()
+                .fg(Color::Blue)
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .ratio(app.focus_level / 100.0)
         .label(label);
     f.render_widget(gauge, info_chunks[0]);
@@ -163,7 +223,7 @@ fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
         )
-        .alignment(ratatui::layout::Alignment::Right);
+        .alignment(ratatui::layout::Alignment::Center); // Centered stats
     f.render_widget(stats, info_chunks[1]);
 }
 

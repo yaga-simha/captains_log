@@ -1,4 +1,7 @@
-# Captain's Log - Focus Lock-In TUI
+# Captain's Log - Lockin Wesley
+
+![Captain's Log Logo](/captains_log.png)
+
 
 A developer productivity suite and TUI app that tracks keyboard activity, allows journaling, and keeps you focused.
 

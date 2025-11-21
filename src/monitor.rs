@@ -51,9 +51,10 @@ pub fn start_monitor(tx: Sender<MonitorEvent>) {
                             Ok(events) => {
                                 for event in events {
                                     if let InputEventKind::Key(_) = event.kind() {
-                                        // We only care that a key was pressed/released
-                                        // Send activity event
-                                        let _ = tx_clone.send(MonitorEvent::Activity);
+                                        // Only count key presses (value == 1), ignore releases (0) and repeats (2)
+                                        if event.value() == 1 {
+                                            let _ = tx_clone.send(MonitorEvent::Activity);
+                                        }
                                     }
                                 }
                             }

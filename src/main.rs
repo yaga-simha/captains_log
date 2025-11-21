@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(std::io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let app = App::new();
+    let mut app = App::new();
 
     // Main event loop
     loop {
@@ -23,10 +23,30 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Input handling
         if event::poll(std::time::Duration::from_millis(100))? {
-            let evt = event::read()?;
-            if let event::Event::Key(key) = evt {
-                if key.code == event::KeyCode::Char('q') {
-                    break;
+            if let event::Event::Key(key) = event::read()? {
+                match key.code {
+                    event::KeyCode::Char('q') => break,
+                    event::KeyCode::Char(c) => {
+                        app.input.insert(app.cursor_position, c);
+                        app.cursor_position += 1;
+                    }
+                    event::KeyCode::Backspace => {
+                        if app.cursor_position > 0 {
+                            app.cursor_position -= 1;
+                            app.input.remove(app.cursor_position);
+                        }
+                    }
+                    event::KeyCode::Left => {
+                        if app.cursor_position > 0 {
+                            app.cursor_position -= 1;
+                        }
+                    }
+                    event::KeyCode::Right => {
+                        if app.cursor_position < app.input.len() {
+                            app.cursor_position += 1;
+                        }
+                    }
+                    _ => {}
                 }
             }
         }

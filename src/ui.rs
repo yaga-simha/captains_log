@@ -29,7 +29,7 @@ pub fn render(f: &mut Frame, app: &App) {
 }
 
 fn render_header(f: &mut Frame, area: Rect) {
-    let text = ">>> RATATUI: FOCUS LOCK-IN // DEVELOPER PRODUCTIVITY SUITE <<<";
+    let text = ">>> CAPTAIN'S LOG <<<";
     let paragraph = Paragraph::new(text)
         .style(
             Style::default()
@@ -43,86 +43,128 @@ fn render_header(f: &mut Frame, area: Rect) {
 
 fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
-        .title("KEYBOARD ACTIVITY STREAM (BRAILLE-GANTT)")
+        .title("KEYBOARD ACTIVITY")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
     let inner_area = block.inner(area);
     f.render_widget(block, area);
 
-    // Render Focus Level Gauge inside the Activity Stream area (bottom right)
-    // We'll split the inner area
+    // Split into Chart area and Bottom Info Bar (Gauge + Stats)
     let activity_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),
-            Constraint::Length(1), // Gauge
+            Constraint::Min(1),    // Chart
+            Constraint::Length(1), // Gauge/Stats
         ])
         .split(inner_area);
 
-    // Braille visualization
-    let width = activity_chunks[0].width as usize;
-    let height = activity_chunks[0].height as usize;
+    // --- Braille Visualization ---
+    let chart_area = activity_chunks[0];
+    let width = chart_area.width as usize;
+    let height = chart_area.height as usize;
 
-    // We want to visualize the activity stream.
-    // We'll take the last 'width' items from the stream.
-    let skip = if app.activity_stream.len() > width {
-        app.activity_stream.len() - width
-    } else {
-        0
-    };
+    // Get data for the width of the chart
+    // We want to fill from right to left.
+    // If we have less data than width, we pad with 0.
+    // If we have more, we take the last 'width' items.
+    let data_len = app.activity_stream.len();
+    let mut data = Vec::with_capacity(width);
 
-    let data: Vec<u32> = app.activity_stream.iter().skip(skip).cloned().collect();
+    if data_len < width {
+        let padding = width - data_len;
+        let left_pad = padding / 2;
+        let right_pad = padding - left_pad;
 
-    // Create a string for the paragraph
-    // We'll just use one line for now, or repeat it for height
-    // To make it look like a "stream", we can just show the dots.
-
-    let mut line_string = String::new();
-    // Pad with empty if not enough data
-    if data.len() < width {
-        for _ in 0..(width - data.len()) {
-            line_string.push('⠀');
+        for _ in 0..left_pad {
+            data.push(0);
         }
+        data.extend(app.activity_stream.iter().cloned());
+        for _ in 0..right_pad {
+            data.push(0);
+        }
+    } else {
+        data.extend(app.activity_stream.iter().skip(data_len - width).cloned());
     }
 
-    for &count in &data {
-        let c = match count {
-            0 => '⠀',
-            1..=2 => '⠠',
-            3..=5 => '⠆',
-            6..=10 => '⠇',
-            _ => '⣿',
-        };
-        line_string.push(c);
-    }
+    // Determine max value for scaling
+    let max_val = data.iter().max().cloned().unwrap_or(1).max(5); // Minimum scale of 5
 
     let mut full_text = String::new();
-    // Center vertically or fill?
-    // Let's fill the middle line
-    for i in 0..height {
-        if i == height / 2 {
-            full_text.push_str(&line_string);
-        } else {
-            // Empty lines or faint dots
-            // full_text.push_str(&" ".repeat(width));
-            // Optional: add some static or decoration
-            full_text.push_str(&" ".repeat(width));
+
+    // Render from top row to bottom row
+    for row in 0..height {
+        let mut line_string = String::new();
+        // Calculate threshold for this row
+        // Row 0 is top, Row height-1 is bottom.
+        // We want to map value to height.
+        // Normalized value v_norm = v / max_val * height
+        // If v_norm >= (height - row), it's full.
+        // If v_norm is between (height - row - 1) and (height - row), it's partial.
+
+        for &val in &data {
+            let v_norm = (val as f32 / max_val as f32) * height as f32;
+            let row_val = height as f32 - row as f32; // e.g. if height=5, row=0 -> 5.0 (top)
+
+            // Check if the bar reaches this row
+            if v_norm >= row_val {
+                line_string.push('⣿');
+            } else if v_norm >= row_val - 1.0 {
+                // Partial block
+                // Fraction within this block: v_norm - (row_val - 1.0)
+                let frac = v_norm - (row_val - 1.0);
+
+                if frac > 0.8 {
+                    line_string.push('⣿');
+                } else if frac > 0.6 {
+                    line_string.push('⠇');
+                } else if frac > 0.4 {
+                    line_string.push('⠆');
+                } else if frac > 0.1 {
+                    line_string.push('⠠');
+                }
+                // minimal dot
+                else {
+                    line_string.push('⠀');
+                }
+            } else {
+                line_string.push('⠀');
+            }
         }
+        full_text.push_str(&line_string);
         full_text.push('\n');
     }
 
     let paragraph = Paragraph::new(full_text)
         .block(Block::default().borders(Borders::NONE))
         .style(Style::default().fg(Color::Yellow));
-    f.render_widget(paragraph, activity_chunks[0]);
+    f.render_widget(paragraph, chart_area);
+
+    // --- Bottom Info Bar (Gauge + Stats) ---
+    let info_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(70), // Gauge
+            Constraint::Percentage(30), // Stats
+        ])
+        .split(activity_chunks[1]);
 
     let label = format!("CURRENT FOCUS LEVEL: {:.0}% (LOCKED IN)", app.focus_level);
     let gauge = Gauge::default()
         .gauge_style(Style::default().fg(Color::Blue).bg(Color::DarkGray))
         .ratio(app.focus_level / 100.0)
         .label(label);
-    f.render_widget(gauge, activity_chunks[1]);
+    f.render_widget(gauge, info_chunks[0]);
+
+    let stats_text = format!("WPM: {:03} | LPM: {:04}", app.wpm, app.lpm);
+    let stats = Paragraph::new(stats_text)
+        .style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        )
+        .alignment(ratatui::layout::Alignment::Right);
+    f.render_widget(stats, info_chunks[1]);
 }
 
 fn render_journal_section(f: &mut Frame, app: &App, area: Rect) {
@@ -157,11 +199,20 @@ fn render_journal_section(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_footer(f: &mut Frame, area: Rect) {
-    let text = "RATATUI TUI | V1.2.0                                CONNECTED | F1: HELP | F5: REFRESH | F10: EXIT";
-    let paragraph = Paragraph::new(text)
+    let block = Block::default().borders(Borders::TOP);
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let left_text = "CAPTAIN'S LOG | V1.0.0 | F10: EXIT";
+    let right_text = "github: yaga-simha";
+
+    let left_p = Paragraph::new(left_text).style(Style::default().fg(Color::Gray));
+    let right_p = Paragraph::new(right_text)
         .style(Style::default().fg(Color::Gray))
-        .block(Block::default().borders(Borders::TOP));
-    f.render_widget(paragraph, area);
+        .alignment(ratatui::layout::Alignment::Right);
+
+    f.render_widget(left_p, inner);
+    f.render_widget(right_p, inner);
 }
 
 fn render_alert(f: &mut Frame) {

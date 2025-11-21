@@ -12,6 +12,8 @@ pub struct App<'a> {
     pub alert_active: bool,
     pub should_quit: bool,
     pub journal: Journal,
+    pub lpm: u32,
+    pub wpm: u32,
 }
 
 impl<'a> App<'a> {
@@ -31,12 +33,14 @@ impl<'a> App<'a> {
         Self {
             textarea,
             logs,
-            activity_stream: VecDeque::with_capacity(100),
+            activity_stream: VecDeque::with_capacity(300), // Increased capacity for 60s+ history
             focus_level: 100.0,
             last_activity: Local::now(),
             alert_active: false,
             should_quit: false,
             journal,
+            lpm: 0,
+            wpm: 0,
         }
     }
 
@@ -54,6 +58,21 @@ impl<'a> App<'a> {
         } else {
             self.alert_active = false;
         }
+
+        // Calculate LPM and WPM
+        // activity_stream holds counts per tick (approx 250ms)
+        // We want the sum of the last 60s (approx 240 ticks)
+        let ticks_per_minute = 240;
+        let count = self.activity_stream.len();
+        let start_index = if count > ticks_per_minute {
+            count - ticks_per_minute
+        } else {
+            0
+        };
+
+        let total_keystrokes: u32 = self.activity_stream.iter().skip(start_index).sum();
+        self.lpm = total_keystrokes;
+        self.wpm = total_keystrokes / 5;
     }
 
     pub fn add_log(&mut self, content: String) {

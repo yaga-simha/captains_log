@@ -5,18 +5,9 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::error::Error;
 
-mod journal;
-mod ui;
+use captains_log::{ui, App};
 
-struct App {
-    // TODO: add app state fields
-}
 
-impl App {
-    fn new() -> App {
-        App {}
-    }
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Setup terminal
@@ -24,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(std::io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::new();
+    let app = App::new();
 
     // Main event loop
     loop {

@@ -1,11 +1,11 @@
 use ratatui::{
     Frame,
-    backend::Backend,
     layout::{Constraint, Direction, Layout},
     widgets::{Block, Borders},
 };
+use crate::App;
 
-pub fn render(f: &mut Frame, _app: &crate::App) {
+pub fn render(f: &mut Frame, _app: &App) {
     let size = f.size();
 
     let chunks = Layout::default()

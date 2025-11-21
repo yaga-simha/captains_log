@@ -18,12 +18,11 @@ impl Journal {
     }
 
     pub fn save(&self, entry: &JournalEntry) -> std::io::Result<()> {
-        use std::fs::{create_dir_all, File, OpenOptions};
+        use std::fs::{create_dir_all, File};
         use std::io::Write;
-        use serde_json::json;
 
         create_dir_all(&self.path)?;
-        let filename = self.path.join(format!("{}.json", Utc::now().format("%Y-%m-%d-%H-%M-%S")));
+        let filename = self.path.join(format!("{}.json", Utc::now().format("%Y-%m-%d-%H-%M-%S-%3f")));
         let mut file = File::create(filename)?;
         let json = serde_json::to_string(entry)?;
         file.write_all(json.as_bytes())?;

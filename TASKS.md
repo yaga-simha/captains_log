@@ -1,6 +1,6 @@
-- [ ] Set up basic application skeleton in src/main.rs
-- [ ] Add journal logging functionality in src/journal.rs
-- [ ] Implement log entry persistence to disk (create journal folder)
+- [x] Set up basic application skeleton in src/main.rs
+- [x] Add journal logging functionality in src/journal.rs
+- [x] Implement log entry persistence to disk (create journal folder)
 - [ ] Design and implement the three left-panel sub-panels (write, list, view)
 - [ ] Add keyboard handling (CTRL+S to save entry)
 - [ ] Implement scrolling for the list and detail views

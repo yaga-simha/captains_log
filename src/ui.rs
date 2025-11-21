@@ -1,8 +1,27 @@
-use ratatui::{Frame, backend::Backend, layout::Rect, text::Spans, widgets::{Block, Borders, Paragraph}};
+use ratatui::{
+    Frame,
+    backend::Backend,
+    layout::{Constraint, Direction, Layout},
+    widgets::{Block, Borders},
+};
 
-pub fn render<B: Backend>(f: &mut Frame<B>, _app: &crate::App) {
+pub fn render(f: &mut Frame, _app: &crate::App) {
     let size = f.size();
-    let block = Block::default().title("Journal UI").borders(Borders::ALL);
-    f.render_widget(block, size);
-    // TODO: render subpanels
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Write panel
+            Constraint::Length(5), // List panel
+            Constraint::Min(0),    // View panel
+        ])
+        .split(size);
+
+    let write_block = Block::default().title("Write").borders(Borders::ALL);
+    let list_block = Block::default().title("List").borders(Borders::ALL);
+    let view_block = Block::default().title("View").borders(Borders::ALL);
+
+    f.render_widget(write_block, chunks[0]);
+    f.render_widget(list_block, chunks[1]);
+    f.render_widget(view_block, chunks[2]);
 }

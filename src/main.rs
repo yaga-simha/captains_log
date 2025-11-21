@@ -1,6 +1,9 @@
+use crossterm::{
+    event, execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::error::Error;
-use ratatui::{backend::CrosstermBackend, Terminal};
-use crossterm::{event, execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen}};
 
 mod journal;
 mod ui;
@@ -11,7 +14,7 @@ struct App {
 
 impl App {
     fn new() -> App {
-        App { }
+        App {}
     }
 }
 

@@ -34,8 +34,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
+        if crossterm::event::poll(timeout)?
+            && let Event::Key(key) = event::read()? {
                 // Handle global shortcuts
                 match key.code {
                     KeyCode::F(10) => app.should_quit = true,
@@ -59,11 +59,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-        }
 
         // Check monitor events
         let mut activity_count = 0;
-        while let Ok(_) = rx.try_recv() {
+        while rx.try_recv().is_ok() {
             app.register_activity();
             activity_count += 1;
         }

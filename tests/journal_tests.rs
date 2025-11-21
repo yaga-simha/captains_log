@@ -24,12 +24,14 @@ fn test_journal_save_and_load() -> Result<(), Box<dyn std::error::Error>> {
     journal.save(&entry1)?;
     std::thread::sleep(std::time::Duration::from_millis(100)); // Add a small delay
 
-
     // Verify file exists and content is correct
     let entries = journal.load_all()?;
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].content, entry1.content);
-    assert_eq!(entries[0].timestamp.to_rfc3339(), entry1.timestamp.to_rfc3339());
+    assert_eq!(
+        entries[0].timestamp.to_rfc3339(),
+        entry1.timestamp.to_rfc3339()
+    );
 
     // Test saving another entry
     let entry2 = JournalEntry {
@@ -54,9 +56,7 @@ fn test_journal_save_and_load() -> Result<(), Box<dyn std::error::Error>> {
 fn test_journal_load_empty_directory() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let journal_path = dir.path().join("empty_journals");
-    let journal = Journal {
-        path: journal_path,
-    };
+    let journal = Journal { path: journal_path };
 
     let entries = journal.load_all()?;
     assert!(entries.is_empty());

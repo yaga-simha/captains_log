@@ -76,13 +76,11 @@ fn render_activity_stream(f: &mut Frame, app: &App, area: Rect) {
         let left_pad = padding / 2;
         let right_pad = padding - left_pad;
 
-        for _ in 0..left_pad {
-            data.push(0);
-        }
+        data.extend([0].iter().cycle().take(left_pad));
+
         data.extend(app.activity_stream.iter().cloned());
-        for _ in 0..right_pad {
-            data.push(0);
-        }
+
+        data.extend([0].iter().cycle().take(right_pad));
     } else {
         data.extend(app.activity_stream.iter().skip(data_len - width).cloned());
     }

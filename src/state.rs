@@ -16,6 +16,12 @@ pub struct App<'a> {
     pub wpm: u32,
 }
 
+impl<'a> Default for App<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> App<'a> {
     pub fn new() -> Self {
         let mut textarea = TextArea::default();
@@ -53,22 +59,14 @@ impl<'a> App<'a> {
             self.focus_level = (self.focus_level - 0.5).max(0.0);
         }
 
-        if diff > 30 {
-            self.alert_active = true;
-        } else {
-            self.alert_active = false;
-        }
+        self.alert_active = diff > 30;
 
         // Calculate LPM and WPM
         // activity_stream holds counts per tick (approx 250ms)
         // We want the sum of the last 60s (approx 240 ticks)
         let ticks_per_minute = 240;
         let count = self.activity_stream.len();
-        let start_index = if count > ticks_per_minute {
-            count - ticks_per_minute
-        } else {
-            0
-        };
+        let start_index = count.saturating_sub(ticks_per_minute);
 
         let total_keystrokes: u32 = self.activity_stream.iter().skip(start_index).sum();
         self.lpm = total_keystrokes;

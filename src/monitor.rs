@@ -16,19 +16,17 @@ pub fn start_monitor(tx: Sender<MonitorEvent>) {
         if let Ok(entries) = fs::read_dir("/dev/input") {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(fname) = path.file_name().and_then(|s| s.to_str()) {
-                    if fname.starts_with("event") {
-                        if let Ok(device) = Device::open(&path) {
+                if let Some(fname) = path.file_name().and_then(|s| s.to_str())
+                    && fname.starts_with("event")
+                        && let Ok(device) = Device::open(&path) {
                             // Check if it has keys (is a keyboard)
                             // This is a heuristic: check if it supports KEY_A or KEY_ENTER
-                            if device.supported_keys().map_or(false, |keys| {
+                            if device.supported_keys().is_some_and(|keys| {
                                 keys.contains(Key::KEY_ENTER) || keys.contains(Key::KEY_A)
                             }) {
                                 devices.push(path);
                             }
                         }
-                    }
-                }
             }
         }
 
